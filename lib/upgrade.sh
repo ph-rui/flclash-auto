@@ -145,7 +145,7 @@ capture_run_args() {
 recreate_container() {
   local image="$1"
   [ -s "$STATE_DIR/run-args" ] || capture_run_args || { log "ERROR: 无法捕获 run 参数"; return 1; }
-  # shellcheck disable=SC1090
+  # shellcheck disable=SC1090,SC1091
   source "$STATE_DIR/run-args" || { log "ERROR: run 参数文件损坏"; return 1; }
   [ -n "${RUN_ARGS[*]:-}" ] || { log "ERROR: run 参数为空"; return 1; }
   docker rm -f "$CONTAINER" >/dev/null 2>&1
