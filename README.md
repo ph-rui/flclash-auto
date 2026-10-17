@@ -1,5 +1,7 @@
 # flclash-auto
 
+[![CI](https://github.com/ph-rui/flclash-auto/actions/workflows/ci.yml/badge.svg)](https://github.com/ph-rui/flclash-auto/actions/workflows/ci.yml)
+
 Keep a Docker-hosted [FlClash](https://github.com/chen08209/FlClash) self-healing: **subscription refresh**, **region-only auto node selection**, and **staged version upgrades** — all unattended, all reversible.
 
 > 用 Docker 跑 FlClash 的人，最烦的三件事：订阅过期、节点变慢、升级手忙脚乱。
