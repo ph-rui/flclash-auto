@@ -1,0 +1,21 @@
+proxies:
+  - name: "🇭🇰 香港 | 02"
+    type: ss
+    server: b.example.com
+    port: 2001
+    cipher: aes-128-gcm
+    password: y
+  - name: "🇹🇼 台湾 | 02"
+    type: ss
+    server: b.example.com
+    port: 2002
+    cipher: aes-128-gcm
+    password: y
+proxy-groups:
+  - name: "订阅节点"
+    type: select
+    proxies:
+      - "🇭🇰 香港 | 02"
+      - "🇹🇼 台湾 | 02"
+rules:
+  - MATCH,订阅节点

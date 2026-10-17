@@ -1,0 +1,8 @@
+proxies:
+  - {name: '🇸🇬 新加坡 | 10', type: ss, server: e.example.com, port: 9101, cipher: aes-128-gcm, password: p}
+  - {name: '🇭🇰 香港 | 10', type: ss, server: e.example.com, port: 9102, cipher: aes-128-gcm, password: p}
+proxy-groups:
+  - {name: '剩余流量：100G', type: select, proxies: ['🇸🇬 新加坡 | 10', '🇭🇰 香港 | 10']}
+  - {name: '公告', type: select, proxies: ['🇸🇬 新加坡 | 10', '🇭🇰 香港 | 10']}
+rules:
+  - MATCH,DIRECT

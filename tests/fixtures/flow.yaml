@@ -1,0 +1,8 @@
+proxies:
+  - {name: '🇭🇰 香港 | 01', type: ss, server: a.example.com, port: 1001, cipher: aes-128-gcm, password: x}
+  - {name: '🇯🇵 日本 | 01', type: ss, server: a.example.com, port: 1002, cipher: aes-128-gcm, password: x}
+  - {name: '🇸🇬 新加坡 | 01', type: ss, server: a.example.com, port: 1003, cipher: aes-128-gcm, password: x}
+proxy-groups:
+  - {name: 'Flybit', type: select, proxies: ['🇭🇰 香港 | 01', '🇯🇵 日本 | 01', '🇸🇬 新加坡 | 01']}
+rules:
+  - MATCH,Flybit

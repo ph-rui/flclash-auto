@@ -1,0 +1,16 @@
+# 运行数据：绝不可提交。订阅 URL 等同账号凭据。
+state/
+backup/
+flclash/
+*.sqlite
+*.sqlite-journal
+*.log
+
+# 订阅缓存 / profile（只有测试夹具与示例配置例外）
+*.yaml
+!tests/fixtures/*.yaml
+
+# 杂项
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,26 @@
+proxies:
+  - {name: "🇭🇰 香港 | 03", type: ss, server: c.example.com, port: 3001, cipher: aes-128-gcm, password: z}
+  - {name: "🇯🇵 日本 | 03", type: ss, server: c.example.com, port: 3002, cipher: aes-128-gcm, password: z}
+proxy-groups:
+  # 引用了别的分组 + 内置策略，不能改写（加 region filter 会错）
+  - name: "自动选择"
+    type: select
+    proxies:
+      - "手动选择"
+      - DIRECT
+  - name: "手动选择"
+    type: select
+    proxies:
+      - "🇭🇰 香港 | 03"
+      - "🇯🇵 日本 | 03"
+  # 只有一个成员，改写没有意义
+  - name: "只有一个节点"
+    type: select
+    proxies:
+      - "🇭🇰 香港 | 03"
+  # include-all：成员视为全部节点
+  - name: "全部节点"
+    type: select
+    include-all: true
+rules:
+  - MATCH,自动选择

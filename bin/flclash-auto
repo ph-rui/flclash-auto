@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+# flclash-auto — FlClash 订阅自动更新 / 区域内自动择优 / 灰度版本升级
+set -uo pipefail
+
+# 解析自身真实路径（支持通过 ~/.local/bin 软链调用，多文件结构的关键）
+SELF="${BASH_SOURCE[0]}"
+while [ -L "$SELF" ]; do
+  target="$(readlink "$SELF")"
+  case "$target" in
+    /*) SELF="$target" ;;
+    *) SELF="$(cd "$(dirname "$SELF")" && pwd -P)/$target" ;;
+  esac
+done
+BIN_DIR="$(cd "$(dirname "$SELF")" && pwd -P)"
+ROOT_DIR="$(cd "$BIN_DIR/.." && pwd -P)"
+export ROOT_DIR
+export FLCLASH_AUTO_BIN="$BIN_DIR/flclash-auto"
+
+# shellcheck source=lib/common.sh
+source "$ROOT_DIR/lib/common.sh"
+# shellcheck source=lib/subscription.sh
+source "$ROOT_DIR/lib/subscription.sh"
+# shellcheck source=lib/upgrade.sh
+source "$ROOT_DIR/lib/upgrade.sh"
+# shellcheck source=lib/watchdog.sh
+source "$ROOT_DIR/lib/watchdog.sh"
+
+usage() {
+  cat <<'EOF'
+flclash-auto — 让 FlClash 的订阅、节点选择、版本升级全自动
+
+用法:
+  flclash-auto --check              常规巡检（cron 每 5 分钟；无变化时静默）
+  flclash-auto --explain            打印本轮判定理由，不产生任何改动
+  flclash-auto --force              立即重下订阅并应用（改写失败则保留旧配置）
+  flclash-auto --apply-raw          原样应用订阅（跳过 url-test 改写，逃生口）
+  flclash-auto --status [--json]    状态总览 / 机器可读状态
+  flclash-auto --selftest           依赖、配置、容器、DB schema 自检
+  flclash-auto --check-update       版本灰度检查（cron 每小时）
+  flclash-auto --upgrade [--dry-run] [--force]
+                                    手动升级；--dry-run 只检查不执行
+  flclash-auto --rollback           回滚到 state/prev_image 记录的镜像
+  flclash-auto --recreate <image>   用指定镜像重建容器
+  flclash-auto --save-run-args      重新捕获当前容器的 docker run 参数
+  flclash-auto --install-cron       安装/更新两条 cron 条目（幂等）
+  flclash-auto --uninstall-cron     移除本工具的 cron 条目
+  flclash-auto --version | --help
+
+升级安全规则:
+  自动升级需同时满足：有新版本、发布满 UPGRADE_WAIT_DAYS 天、
+  处于 UPGRADE_WINDOW 维护窗口、当前代理健康、当日未升级过。
+  全程备份配置、目录锁防并发、失败自动回滚，并把坏版本拉黑不再重试。
+
+配置:
+  ~/.config/flclash-auto/config.conf（可用 FLCLASH_AUTO_CONF 覆盖）
+  优先级：环境变量 > 配置文件 > 默认值。参考 config/flclash-auto.conf.example。
+
+退出码: 0 正常/无需动作, 1 需要人工或动作后仍不健康, 2 用法/配置错误
+EOF
+}
+
+cmd="${1:-}"
+
+case "$cmd" in
+  --version|-V)
+    printf 'flclash-auto %s\n' "$FLCLASH_AUTO_VERSION"
+    exit 0
+    ;;
+  --help|-h)
+    usage
+    exit 0
+    ;;
+esac
+
+config_load || exit 2
+
+# 只有真正要读写 profile/DB 的命令才强制要求 PROFILE_ID；
+# 装 cron、重建容器、回滚、看状态这些即使 FlClash 数据还没就绪也应能用。
+need_profile=0
+case "$cmd" in
+  ""|--check|--force|--apply-raw|--explain|--check-update|--upgrade)
+    need_profile=1
+    ;;
+esac
+
+if [ "$need_profile" = "1" ]; then
+  require_yaml || exit 2
+  resolve_profile_id || exit 2
+else
+  resolve_profile_id || true
+fi
+
+rc=0
+case "$cmd" in
+  ""|--check)
+    main_check
+    rc=$?
+    ;;
+  --explain)
+    DRY_RUN=1 main_check
+    rc=$?
+    ;;
+  --force)
+    force_refresh
+    rc=$?
+    ;;
+  --apply-raw)
+    force_refresh --raw
+    rc=$?
+    ;;
+  --status)
+    if [ "${2:-}" = "--json" ]; then
+      do_status_json
+    else
+      do_status
+      printf '%s\n' "--- 版本 ---"
+      do_version_status
+    fi
+    rc=$?
+    ;;
+  --selftest)
+    selftest
+    rc=$?
+    ;;
+  --check-update)
+    do_check_update
+    rc=$?
+    ;;
+  --upgrade)
+    shift
+    do_upgrade "$@"
+    rc=$?
+    ;;
+  --rollback)
+    do_rollback
+    rc=$?
+    ;;
+  --recreate)
+    if [ -z "${2:-}" ]; then
+      die "用法: --recreate <image>"
+    fi
+    if recreate_container "$2" && wait_healthy; then
+      say "已用 $2 重建容器并通过健康检查"
+      rc=0
+    else
+      say "重建或健康检查失败（详见 $LOG_FILE）"
+      rc=1
+    fi
+    ;;
+  --save-run-args)
+    if capture_run_args; then
+      say "已捕获 run 参数 -> $STATE_DIR/run-args"
+      cat "$STATE_DIR/run-args"
+      rc=0
+    else
+      say "捕获 run 参数失败"
+      rc=1
+    fi
+    ;;
+  --install-cron)
+    install_cron
+    rc=$?
+    ;;
+  --uninstall-cron)
+    uninstall_cron
+    rc=$?
+    ;;
+  *)
+    die "未知参数: $cmd（--help 查看用法）"
+    ;;
+esac
+
+exit "$rc"

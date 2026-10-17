@@ -1,0 +1,50 @@
+# flclash-auto 配置示例
+#
+# 安装时会把本文件复制到 ~/.config/flclash-auto/config.conf（若不存在）。
+# 生效优先级：环境变量 > 本文件 > 内置默认值。
+#
+# 注意：本文件是"解析"而非 shell 执行，因此不支持 $HOME 之类的变量展开，
+#       路径请写绝对路径。值得修改的项已注释给出，取消注释即可生效。
+
+# ---- 容器与路径 ----
+# CONTAINER=flclash-docker
+# DATA_DIR=/home/youruser/flclash-docker/flclash
+# STATE_DIR=/home/youruser/flclash-docker/state
+# BACKUP_DIR=/home/youruser/flclash-docker/backup
+
+# profile id。留空 = 自动：先读 shared_preferences.json 的 currentProfileId，
+# 再退回"数据库里只有一条 profile"的判断，都不成立则报错。
+# PROFILE_ID=
+
+# ---- 代理与健康检查 ----
+# PROXY=http://127.0.0.1:7890
+# HEALTH_URL=https://www.google.com/generate_204
+# HEALTH_FAIL_THRESHOLD=2
+# 重启/升级后等待出网：最多试 N 次、每次间隔 S 秒（默认 14×5s，覆盖冷启动）
+# WAIT_HEALTHY_TRIES=14
+# WAIT_HEALTHY_SLEEP=5
+# 提示：若你的网络无法直连 gstatic/Google，请换成你自己确认可达的 204 地址。
+
+# ---- 订阅 ----
+# SUB_REFRESH_INTERVAL=21600
+# 部分机场按 UA 下发不同内容，默认沿用 FlClash 的 UA
+# SUB_UA_TEMPLATE=FlClash/{version}
+
+# ---- 自动择优 ----
+# 只在这几个区域里挑节点（mihomo 分组的 filter 正则）
+# REGION_FILTER=新加坡|香港|日本|台湾|Singapore|Hong Kong|Japan|Taiwan|SG|HK|JP|TW
+# TEST_URL=http://www.gstatic.com/generate_204
+# URLTEST_INTERVAL=300
+# URLTEST_TOLERANCE=50
+# SKIP_GROUP_KEYWORDS=公告|通知|提醒|说明|使用|剩余|到期|流量|时间|官网|脚本|更新
+
+# ---- 版本灰度升级 ----
+# UPGRADE_ENABLED=1
+# UPGRADE_WAIT_DAYS=7
+# UPGRADE_WINDOW=03:00-05:00
+# GH_REPO=chen08209/FlClash
+# KEEP_IMAGES=2
+
+# ---- 日志 ----
+# LOG_MAX_BYTES=1048576
+# LOG_KEEP_LINES=2000

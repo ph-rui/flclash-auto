@@ -1,0 +1,9 @@
+proxies:
+  - {name: '🇸🇬 新加坡 | 09', type: ss, server: d.example.com, port: 9001, cipher: aes-128-gcm, password: p}
+  - {name: '🇭🇰 香港 | 09', type: ss, server: d.example.com, port: 9002, cipher: aes-128-gcm, password: p}
+proxy-groups:
+  - {name: '剩余流量：100G', type: select, proxies: ['🇸🇬 新加坡 | 09', '🇭🇰 香港 | 09']}
+  - {name: '官网/公告', type: select, proxies: ['🇸🇬 新加坡 | 09', '🇭🇰 香港 | 09']}
+  - {name: 'Flybit', type: select, proxies: ['🇸🇬 新加坡 | 09', '🇭🇰 香港 | 09']}
+rules:
+  - MATCH,Flybit
