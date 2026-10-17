@@ -92,8 +92,8 @@ config_load() {
   WAIT_HEALTHY_TRIES="$(config_get WAIT_HEALTHY_TRIES 14)"
   WAIT_HEALTHY_SLEEP="$(config_get WAIT_HEALTHY_SLEEP 5)"
   GH_REPO="$(config_get GH_REPO 'chen08209/FlClash')"
+  GH_API="$(config_get GH_API "https://api.github.com/repos/$GH_REPO/releases/latest")"
   KEEP_IMAGES="$(config_get KEEP_IMAGES 2)"
-  GH_API="https://api.github.com/repos/$GH_REPO/releases/latest"
 
   mkdir -p "$STATE_DIR" "$BACKUP_DIR" 2>/dev/null || true
   return 0

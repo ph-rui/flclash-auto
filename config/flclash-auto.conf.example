@@ -43,6 +43,8 @@
 # UPGRADE_WAIT_DAYS=7
 # UPGRADE_WINDOW=03:00-05:00
 # GH_REPO=chen08209/FlClash
+# 想走 GitHub 镜像或私有发布源时覆盖 release API（默认由 GH_REPO 推导）
+# GH_API=https://api.github.com/repos/chen08209/FlClash/releases/latest
 # KEEP_IMAGES=2
 
 # ---- 日志 ----
