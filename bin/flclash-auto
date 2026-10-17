@@ -55,7 +55,8 @@ flclash-auto — 让 FlClash 的订阅、节点选择、版本升级全自动
   ~/.config/flclash-auto/config.conf（可用 FLCLASH_AUTO_CONF 覆盖）
   优先级：环境变量 > 配置文件 > 默认值。参考 config/flclash-auto.conf.example。
 
-退出码: 0 正常/无需动作, 1 需要人工或动作后仍不健康, 2 用法/配置错误
+退出码: 0 正常/无需动作, 1 需要人工或动作后仍不健康,
+        2 用法/配置错误, 3 订阅里没有可改写的分组（已保留旧 profile）
 EOF
 }
 
