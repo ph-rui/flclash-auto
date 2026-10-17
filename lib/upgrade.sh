@@ -158,6 +158,34 @@ mark_bad() {
   log "INFO: 已将 v$1 标记为坏版本，暂停对其自动升级（人工 --upgrade --force 可覆盖）"
 }
 
+# 新版可能把 database.sqlite 迁移到新 schema，旧版镜像读到新库会起不来。
+# 回滚前必须把升级前的快照还原回去，否则"镜像回滚"等于没回滚。
+restore_pre_upgrade_state() {
+  local ts db prefs restored=0
+  ts="$(cat "$STATE_DIR/prev_ts" 2>/dev/null || true)"
+  [ -n "$ts" ] || return 0
+  db="$BACKUP_DIR/database.sqlite.pre-upgrade-$ts"
+  prefs="$BACKUP_DIR/shared_preferences.json.pre-upgrade-$ts"
+  [ -f "$db" ] || [ -f "$prefs" ] || return 0
+
+  if [ -n "${CONTAINER:-}" ]; then
+    docker stop "$CONTAINER" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$db" ]; then
+    if cp -a "$db" "$DATA_DIR/database.sqlite"; then
+      log "INFO: 已还原升级前的 database.sqlite（避免新 schema 让旧版起不来）"
+      restored=1
+    else
+      log "WARN: 还原 database.sqlite 失败，回滚后可能仍不健康"
+    fi
+  fi
+  if [ -f "$prefs" ]; then
+    cp -a "$prefs" "$DATA_DIR/shared_preferences.json" 2>/dev/null && restored=1
+  fi
+  [ "$restored" = "1" ] || log "WARN: 备份目录里没有可还原的配置快照（ts=$ts）"
+  return 0
+}
+
 do_rollback() {
   local prev
   prev="$(cat "$STATE_DIR/prev_image" 2>/dev/null || true)"
@@ -166,6 +194,7 @@ do_rollback() {
     return 1
   fi
   log "INFO: 执行回滚 -> $prev"
+  restore_pre_upgrade_state
   recreate_container "$prev" || { log "ERROR: 回滚重建容器失败，需人工介入"; return 1; }
   if wait_healthy; then
     log "OK: 回滚成功，已恢复到 $prev 并验证出网正常"
@@ -244,7 +273,7 @@ do_upgrade() {
       return 1
     fi
     rm -f "$debfile"
-    say "[dry-run] 真跑将执行：备份配置 -> 停应用 -> dpkg -i -> 重启 -> 健康验证 -> docker commit flclash:$tag -> 用新镜像重建 -> 再验证；任一步失败自动回滚到 $(docker inspect --format '{{.Config.Image}}' "$CONTAINER" 2>/dev/null || echo 旧镜像)"
+    say "[dry-run] 真跑将执行：备份配置 -> 停应用 -> dpkg -i -> 重启 -> 健康验证 -> docker commit flclash:$tag -> 用新镜像重建 -> 再验证；任一步失败自动回滚到 $(docker inspect --format '{{.Config.Image}}' "$CONTAINER" 2>/dev/null || echo 旧镜像)（回滚会先还原升级前的 database.sqlite）"
     return 0
   fi
 
@@ -273,6 +302,7 @@ do_upgrade() {
 
   mkdir -p "$BACKUP_DIR"
   ts="$(date +%Y%m%d-%H%M%S)"
+  printf '%s\n' "$ts" > "$STATE_DIR/prev_ts"
   cp -a "$DATA_DIR/database.sqlite" "$BACKUP_DIR/database.sqlite.pre-upgrade-$ts" 2>/dev/null || true
   cp -a "$DATA_DIR/shared_preferences.json" "$BACKUP_DIR/shared_preferences.json.pre-upgrade-$ts" 2>/dev/null || true
   cp -a "$(profile_path)" "$STATE_DIR/profile.$PROFILE_ID.yaml.pre-upgrade-$ts" 2>/dev/null || true

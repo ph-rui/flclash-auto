@@ -71,6 +71,7 @@ cron 23 * ──► --check-update
 - **失败只推进时间戳、不推进哈希**：下个 6 小时周期重试，不会每 5 分钟把机场打一遍。
 - **升级门槛四项独立**：版本更高、当日未升级、非坏版本、当前健康；`--force` 才跳过这四项，但**不跳过**备份、deb 完整性校验与失败回滚。
 - **版本固化**：升级成功后 `docker commit`，日后容器被删重建也不会回退。
+- **回滚连数据库一起还原**：新版可能把 `database.sqlite` 迁移成新 schema（实测 FlClash 0.9.0 就会），旧版镜像读到新库会直接起不来。所以失败回滚会先还原升级前的 `database.sqlite` / `shared_preferences.json`，再换回旧镜像——否则"镜像回滚"只是假的回滚。
 
 ## 常用命令
 
@@ -119,7 +120,7 @@ cron 23 * ──► --check-update
 - 订阅 URL 等同账号凭据。本工具**运行时从 FlClash 数据库读取**，不落任何配置文件；
   请确认你提交/分享的内容里没有 `state/`、`backup/`、`flclash/`（仓库的 `.gitignore` 已默认排除）。
 - 安装与升级都要写 Docker；建议只在你自己的机器上以普通用户运行，不要放进不受信任的容器。
-- 每次升级前都备份 `database.sqlite`、`shared_preferences.json` 与当前 profile。
+- 每次升级前都备份 `database.sqlite`、`shared_preferences.json` 与当前 profile；升级失败回滚时前两者会自动还原（`BACKUP_DIR` 里也保留了完整副本供人工取证）。
 
 ## 排障
 
@@ -131,7 +132,7 @@ cron 23 * ──► --check-update
 | `--check-update` 一直不升级 | `--status` 看 `upgrade_state`：`waiting` 观察期未满、`window` 等维护窗口、`blocked` 该版本被拉黑（人工确认后 `--upgrade --force`） |
 | deb 反复下载失败 | 多数网络下 `github.com` 直连不通。本工具会直连快速失败后自动走 `PROXY` |
 | 容器重建后版本回退 | 说明 `docker commit` 那一轮失败了，日志里有明确的 `docker commit <容器> flclash:<版本>` 补救命令 |
-| 升级后不健康 | 工具会自动回滚；若回滚也失败，用 `--rollback` 或 `docker logs <容器>` 人工定位 |
+| 升级后不健康 | 工具会自动回滚（含还原升级前的 `database.sqlite`）；若回滚也失败，用 `--rollback` 或 `docker logs <容器>` 人工定位 |
 
 调试三件事：`--explain` 看判定理由、`--status` 看整体状态、`state/watchdog.log` 看历史。
 

@@ -219,6 +219,30 @@ else
   printf '  skip 无 dpkg-deb\n'
 fi
 
+# ---------------------------------------------------------------- 回滚还原
+
+section "回滚还原数据库（防 schema 迁移锁死旧版）"
+mkdir -p "$TMP/bk2" "$TMP/data2"
+printf 'old-db\n'   > "$TMP/bk2/database.sqlite.pre-upgrade-20260101-000000"
+printf 'old-prefs\n' > "$TMP/bk2/shared_preferences.json.pre-upgrade-20260101-000000"
+printf 'new-db\n'   > "$TMP/data2/database.sqlite"
+printf 'new-prefs\n' > "$TMP/data2/shared_preferences.json"
+printf '20260101-000000\n' > "$TMP/state/prev_ts"
+( BACKUP_DIR="$TMP/bk2"; DATA_DIR="$TMP/data2"; restore_pre_upgrade_state ) >/dev/null 2>&1
+assert_eq "$(cat "$TMP/data2/database.sqlite")" "old-db" "回滚时还原 database.sqlite"
+assert_eq "$(cat "$TMP/data2/shared_preferences.json")" "old-prefs" "回滚时还原 shared_preferences.json"
+
+printf 'newer-db\n' > "$TMP/data2/database.sqlite"
+rm -f "$TMP/state/prev_ts"
+( BACKUP_DIR="$TMP/bk2"; DATA_DIR="$TMP/data2"; restore_pre_upgrade_state ) >/dev/null 2>&1
+assert_eq "$(cat "$TMP/data2/database.sqlite")" "newer-db" "无 prev_ts 时不动数据库"
+
+printf '20260101-000000\n' > "$TMP/state/prev_ts"
+rm -f "$TMP/bk2/database.sqlite.pre-upgrade-20260101-000000" "$TMP/bk2/shared_preferences.json.pre-upgrade-20260101-000000"
+printf 'keep-db\n' > "$TMP/data2/database.sqlite"
+( BACKUP_DIR="$TMP/bk2"; DATA_DIR="$TMP/data2"; restore_pre_upgrade_state ) >/dev/null 2>&1
+assert_eq "$(cat "$TMP/data2/database.sqlite")" "keep-db" "快照缺失时不破坏现有数据库"
+
 # ---------------------------------------------------------------- 其他
 
 section "其他"
