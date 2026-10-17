@@ -464,7 +464,7 @@ do_status() {
 }
 
 do_version_status() {
-  local info tag pub deb cur days
+  local info tag pub deb cur days blocked_tag
   cur="$(installed_version)"
   say "当前版本: ${cur:-未知}"
   if ! info="$(latest_release)"; then
@@ -482,10 +482,11 @@ do_version_status() {
     else
       say "自动升级: 关"
     fi
-    if [ "$(cat "$STATE_DIR/upgrade_blocked" 2>/dev/null || true)" = "$tag" ]; then
+    blocked_tag="$(cat "$STATE_DIR/upgrade_blocked" 2>/dev/null || true)"
+    if [ "$blocked_tag" = "$tag" ]; then
       say "  注意: 该版本已被标记为坏版本，不会自动升级"
-    fi
-    if [ "$days" -lt "$UPGRADE_WAIT_DAYS" ]; then
+      say "下一步: 该版本已拉黑，跳过；等更高的版本（或人工 --upgrade --force 重试）"
+    elif [ "$days" -lt "$UPGRADE_WAIT_DAYS" ]; then
       say "下一步: 还需等待观察 $((UPGRADE_WAIT_DAYS - days)) 天"
     elif in_window; then
       say "下一步: 正在维护窗口内，下次 cron（每小时）即会升级"
