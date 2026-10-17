@@ -184,7 +184,7 @@ do_upgrade() {
       *) die "未知的 --upgrade 参数: $a" ;;
     esac
   done
-  rotate_log
+  [ "$dry" = "1" ] || rotate_log
 
   local info tag pub deb cur new prev_image ts debfile pkg try got=0 days blocked upgraded_today
   info="$(latest_release)" || { log "ERROR: 取不到 GitHub release（api.github.com 不可达），放弃"; return 1; }

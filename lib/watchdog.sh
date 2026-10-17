@@ -11,7 +11,8 @@ main_check() {
   local url ua last now fails tmp raw_hash prev_hash rc
   DRY_RUN="${DRY_RUN:-0}"
 
-  rotate_log
+  # --explain 承诺零副作用：连日志轮转都不做
+  [ "$DRY_RUN" = "1" ] || rotate_log
 
   # 1) 升级进行中：此时应用会被主动停掉，健康检查必然失败，必须让路
   if lock_active; then
@@ -23,7 +24,7 @@ main_check() {
   ua="$(sub_ua)"
   if [ -z "$url" ]; then
     explain "读不到订阅地址（profiles.url 为空）"
-    log "ERROR: 读不到订阅地址（profiles.url 为空）"
+    [ "$DRY_RUN" = "1" ] || log "ERROR: 读不到订阅地址（profiles.url 为空）"
     return 1
   fi
 
@@ -87,7 +88,7 @@ main_check() {
 
   # 4) 健康
   if health_ok; then
-    echo 0 > "$STATE_DIR/health_fail"
+    [ "$DRY_RUN" = "1" ] || echo 0 > "$STATE_DIR/health_fail"
     explain "健康检查正常，无需动作"
     return 0
   fi
