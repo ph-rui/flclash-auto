@@ -133,7 +133,7 @@ cron 23 * ──► --check-update
 | deb 反复下载失败 | 多数网络下 `github.com` 直连不通。本工具会直连快速失败后自动走 `PROXY` |
 | 容器重建后版本回退 | 说明 `docker commit` 那一轮失败了，日志里有明确的 `docker commit <容器> flclash:<版本>` 补救命令 |
 | 升级后不健康 | 工具会自动回滚（含还原升级前的 `database.sqlite`）；若回滚也失败，用 `--rollback` 或 `docker logs <容器>` 人工定位 |
-| 升级后 7890 不监听、无核心进程 | 已知：FlClash **0.9.0** 在 headless Docker 镜像里不会拉起 `FlClashCore`，见 [docs/notes/2026-10-17-flclash-0.9.0-docker-incompatible.md](docs/notes/2026-10-17-flclash-0.9.0-docker-incompatible.md)。工具会把它拉黑并留在旧版 |
+| 升级后 7890 不监听、无核心进程 | 已知：FlClash **0.9.0** 在 headless Docker 镜像里不会拉起 `FlClashCore`，见 [docs/notes/2026-10-17-flclash-0.9.0-docker-incompatible.md](docs/notes/2026-10-17-flclash-0.9.0-docker-incompatible.md)（上游 issue [#2728](https://github.com/chen08209/FlClash/issues/2728)）。工具会把它拉黑并留在旧版 |
 
 调试三件事：`--explain` 看判定理由、`--status` 看整体状态、`state/watchdog.log` 看历史。
 
