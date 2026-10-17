@@ -27,7 +27,7 @@ Keep a Docker-hosted [FlClash](https://github.com/chen08209/FlClash) self-healin
 ## 快速开始
 
 ```bash
-git clone <this-repo> flclash-auto && cd flclash-auto
+git clone https://github.com/ph-rui/flclash-auto.git && cd flclash-auto
 
 ./install.sh                       # 装到 ~/.local，生成 ~/.config/flclash-auto/config.conf
 $EDITOR ~/.config/flclash-auto/config.conf   # 至少确认 DATA_DIR / STATE_DIR / CONTAINER
