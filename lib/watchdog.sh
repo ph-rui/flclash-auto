@@ -91,7 +91,7 @@ main_check() {
     explain "健康检查正常，无需动作"
     return 0
   fi
-  explain "健康检查失败（若计数达到 $HEALTH_FAIL_THRESHOLD 将重启容器）"
+  explain "健康检查失败（当前计数 $(cat "$STATE_DIR/health_fail" 2>/dev/null || echo 0)，阈值 $HEALTH_FAIL_THRESHOLD）"
   [ "$DRY_RUN" = "1" ] && return 0
 
   fails=$(( $(cat "$STATE_DIR/health_fail" 2>/dev/null || echo 0) + 1 ))

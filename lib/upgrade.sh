@@ -355,7 +355,8 @@ do_upgrade() {
       rm -f "$STATE_DIR/upgrade_candidate"
       log "OK: 升级完成 FlClash $cur -> $tag，已固化为 flclash:$tag 并用其重建容器，健康验证通过"
       note_update "已升级至 v$tag"
-      log "提示: 现有 flclash 镜像 tag: $(docker images flclash --format '{{.Tag}}' 2>/dev/null | tr '\n' ' ')"
+      log "提示: 现有 flclash 镜像: $(docker images flclash --format '{{.Tag}}' 2>/dev/null | tr '\n' ' ')"
+      log "提示: 保留最近 $KEEP_IMAGES 个镜像用于回滚；更旧的可用 docker rmi flclash:<tag> 手动清理（本工具不自动删除镜像）"
       return 0
     fi
     log "ERROR: 用 flclash:$tag 重建后不健康（或重建失败），回滚"
