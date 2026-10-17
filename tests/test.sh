@@ -32,6 +32,9 @@ source "$ROOT/lib/watchdog.sh"
 
 config_load || { echo "config_load 失败"; exit 1; }
 PROFILE_ID=1
+# 纯函数测试：务必保证测试不会碰到真实容器
+# （restore_pre_upgrade_state 在回滚时会 docker stop $CONTAINER，曾经因此误停生产容器）
+CONTAINER=""
 
 PASS=0
 FAIL=0
