@@ -88,9 +88,10 @@ verify_deb() {
 }
 
 # 从运行中的容器精确捕获 docker run 参数（升级/回滚重建容器用）。
-# 覆盖：name/network/user/privileged/cap-add/device/binds/env 差异/restart。
-# 未覆盖 add-host、dns、sysctl、ulimit、shm-size、publish —— 本工具不生成这些参数；
+# 覆盖：name/network/user/privileged/cap-add/device/binds/env 差异/publish/restart。
+# 未覆盖 add-host、dns、sysctl、ulimit、shm-size —— 本工具不生成这些参数；
 # 若手工加过，请先 --save-run-args 并人工核对，否则重建会丢参数。
+# host 端口为空（-P 随机分配）的绑定不搬运，重建后会由 docker 重新随机分配。
 capture_run_args() {
   local img img_env c h p perm b e rn mr out
   img="$(docker inspect --format '{{.Config.Image}}' "$CONTAINER" 2>/dev/null || true)"
@@ -129,6 +130,17 @@ capture_run_args() {
           [ -n "$e" ] && printf '  "-e"\n  "%s"\n' "$e"
         done
     fi
+    # 端口映射：丢了它，重建后容器还在、端口却没了（--network host 不受影响）
+    docker inspect --format '{{range $p, $conf := .HostConfig.PortBindings}}{{range $conf}}{{.HostIp}}|{{.HostPort}}|{{$p}}{{println}}{{end}}{{end}}' \
+      "$CONTAINER" 2>/dev/null |
+      while IFS='|' read -r ip hp cp; do
+        [ -n "$hp" ] && [ -n "$cp" ] || continue
+        if [ -n "$ip" ]; then
+          printf '  "-p"\n  "%s:%s:%s"\n' "$ip" "$hp" "$cp"
+        else
+          printf '  "-p"\n  "%s:%s"\n' "$hp" "$cp"
+        fi
+      done
     rn="$(docker inspect --format '{{.HostConfig.RestartPolicy.Name}}' "$CONTAINER" 2>/dev/null || true)"
     mr="$(docker inspect --format '{{.HostConfig.RestartPolicy.MaximumRetryCount}}' "$CONTAINER" 2>/dev/null || true)"
     case "$rn" in
@@ -156,6 +168,49 @@ mark_bad() {
   [ -n "${1:-}" ] || return 0
   grep -qxF "$1" "$STATE_DIR/upgrade_blocked" 2>/dev/null || printf '%s\n' "$1" >> "$STATE_DIR/upgrade_blocked"
   log "INFO: 已将 v$1 标记为坏版本，暂停对其自动升级（人工 --upgrade --force 可覆盖）"
+}
+
+# 0.9.x 首次启动会弹"免责声明"对话框。headless/无人值守环境没人点"同意"，
+# bootstrap 的 _initApp 就停在 requestDisclaimerConsent() 处直接返回，
+# 核心（以及整个应用初始化）永远不会启动——表现为进程在、7890 不监听。
+# 这里把已接受版本写成 1（= 0.9.0/0.9.1 的 disclaimerVersion）。
+# 只改 appSettingProps.acceptedDisclaimerVersion，其它字段原样保留。
+ensure_disclaimer_accepted() {
+  local prefs="${1:-$DATA_DIR/shared_preferences.json}"
+  [ -f "$prefs" ] || return 0
+  python3 - "$prefs" <<'PY'
+import json
+import os
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as f:
+    data = json.load(f)
+raw = data.get("flutter.config")
+if not isinstance(raw, str):
+    sys.exit(0)  # 不是 0.9.x 的存储格式；无需处理，交给健康检查兜底
+try:
+    cfg = json.loads(raw)
+except ValueError:
+    sys.exit(2)
+props = cfg.get("appSettingProps")
+if not isinstance(props, dict):
+    sys.exit(0)
+cur = props.get("acceptedDisclaimerVersion")
+if isinstance(cur, int) and cur >= 1:
+    sys.exit(0)  # 已经接受过，不产生任何写入
+props["acceptedDisclaimerVersion"] = 1
+data["flutter.config"] = json.dumps(cfg, ensure_ascii=False, separators=(",", ":"))
+st = os.stat(path)
+tmp = path + ".tmp"
+with open(tmp, "w", encoding="utf-8") as f:
+    json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    f.flush()
+    os.fsync(f.fileno())
+os.chmod(tmp, st.st_mode)
+os.replace(tmp, path)
+print("acceptedDisclaimerVersion -> 1")
+PY
 }
 
 # upgrade_blocked 每行是一条 glob（如 0.9.*），命中任意一行即视为坏版本；
@@ -233,7 +288,7 @@ do_upgrade() {
   done
   [ "$dry" = "1" ] || rotate_log
 
-  local info tag pub deb cur new prev_image ts debfile pkg try got=0 days upgraded_today
+  local info tag pub deb cur new prev_image ts debfile pkg try got=0 days upgraded_today out
   info="$(latest_release)" || { log "ERROR: 取不到 GitHub release（api.github.com 不可达），放弃"; return 1; }
   tag="$(printf '%s' "$info" | cut -f1)"
   pub="$(printf '%s' "$info" | cut -f2)"
@@ -382,6 +437,15 @@ do_upgrade() {
   if [ "$new" != "$tag" ] && ! ver_newer_than "$new" "$cur"; then
     log "ERROR: 安装后版本不符（期望 $tag，实得 ${new:-未知}），回滚"
     mark_bad "$tag"
+    do_rollback
+    return 1
+  fi
+
+  # 0.9.x 的免责声明对话框会卡死 headless 启动，必须在重启前写入已接受标记
+  if out="$(ensure_disclaimer_accepted)"; then
+    [ -n "$out" ] && log "INFO: headless 免责声明标记: $out"
+  else
+    log "ERROR: 写入 acceptedDisclaimerVersion 失败，升级后核心不会启动，回滚"
     do_rollback
     return 1
   fi

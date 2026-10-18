@@ -103,6 +103,43 @@ assert_eq "$(cat "$STATE_DIR/upgrade_blocked")" "0.9.1
 ( log() { :; }; mark_bad "" )
 assert_eq "$(wc -l < "$STATE_DIR/upgrade_blocked" | tr -d ' ')" "2" "mark_bad 空参数不写入"
 
+# ---------------------------------------------------------------- 免责声明
+
+section "0.9.x headless 免责声明"
+P0="$TMP/prefs0"; P1="$TMP/prefs1"; PB="$TMP/prefsbad"; PW="$TMP/prefsw"; PE="$TMP/prefse"
+mkdir -p "$P0" "$P1" "$PB" "$PW" "$PE"
+printf '%s' '{"flutter.config":"{\"appSettingProps\":{\"acceptedDisclaimerVersion\":0,\"keepMe\":\"x\"},\"other\":1}","other.key":"v"}' > "$P0/shared_preferences.json"
+out=$( ensure_disclaimer_accepted "$P0/shared_preferences.json" ) && ok "accepted=0 时成功改写" || bad "accepted=0 应成功改写"
+assert_eq "$out" "acceptedDisclaimerVersion -> 1" "改写时输出提示"
+assert_eq "$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(json.loads(d["flutter.config"])["appSettingProps"]["acceptedDisclaimerVersion"])' "$P0/shared_preferences.json")" "1" "acceptedDisclaimerVersion 变为 1"
+assert_eq "$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(json.loads(d["flutter.config"])["appSettingProps"]["keepMe"], d["other.key"])' "$P0/shared_preferences.json")" "x v" "其它字段原样保留"
+
+printf '%s' '{"flutter.config":"{\"appSettingProps\":{\"acceptedDisclaimerVersion\":1}}"}' > "$P1/shared_preferences.json"
+sum1=$(md5sum "$P1/shared_preferences.json" | cut -d' ' -f1)
+out=$( ensure_disclaimer_accepted "$P1/shared_preferences.json" ) && ok "accepted=1 时返回成功" || bad "accepted=1 应成功"
+assert_eq "$out" "" "accepted=1 不输出"
+assert_eq "$(md5sum "$P1/shared_preferences.json" | cut -d' ' -f1)" "$sum1" "accepted=1 不做任何写入"
+
+printf '%s' '{"flutter.config":"not-json"}' > "$PB/shared_preferences.json"
+if ensure_disclaimer_accepted "$PB/shared_preferences.json" >/dev/null 2>&1; then
+  bad "损坏的 flutter.config 应返回非零"
+else
+  ok "损坏的 flutter.config 返回非零"
+fi
+
+printf '%s' '{"flutter.config":{"not":"a string"}}' > "$PW/shared_preferences.json"
+if ensure_disclaimer_accepted "$PW/shared_preferences.json" >/dev/null 2>&1; then
+  ok "非字符串存储格式安全跳过"
+else
+  bad "非字符串存储格式不应失败"
+fi
+
+if ensure_disclaimer_accepted "$PE/shared_preferences.json" >/dev/null 2>&1; then
+  ok "无 shared_preferences.json 时安全跳过"
+else
+  bad "无 prefs 文件不应失败"
+fi
+
 # ---------------------------------------------------------------- 维护窗口
 
 section "维护窗口"
