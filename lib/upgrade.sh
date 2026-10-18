@@ -154,8 +154,26 @@ recreate_container() {
 
 mark_bad() {
   [ -n "${1:-}" ] || return 0
-  printf '%s\n' "$1" > "$STATE_DIR/upgrade_blocked"
+  grep -qxF "$1" "$STATE_DIR/upgrade_blocked" 2>/dev/null || printf '%s\n' "$1" >> "$STATE_DIR/upgrade_blocked"
   log "INFO: 已将 v$1 标记为坏版本，暂停对其自动升级（人工 --upgrade --force 可覆盖）"
+}
+
+# upgrade_blocked 每行是一条 glob（如 0.9.*），命中任意一行即视为坏版本；
+# 空行与 # 注释忽略。用整段拉黑可以挡住同一系列的后续版本，避免每次
+# 版本更新都在维护窗口里白试一次（失败虽会回滚，但仍有一次短暂中断）。
+is_blocked_version() {
+  local tag="${1:-}" pat line f
+  [ -n "$tag" ] || return 1
+  f="$STATE_DIR/upgrade_blocked"
+  [ -f "$f" ] || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    pat="$(printf '%s' "$line" | tr -d '\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+    [ -n "$pat" ] || continue
+    case "$pat" in '#'*) continue ;; esac
+    # shellcheck disable=SC2254  # $pat 需要按 glob 展开
+    case "$tag" in $pat) return 0 ;; esac
+  done < "$f"
+  return 1
 }
 
 # 新版可能把 database.sqlite 迁移到新 schema，旧版镜像读到新库会起不来。
@@ -215,7 +233,7 @@ do_upgrade() {
   done
   [ "$dry" = "1" ] || rotate_log
 
-  local info tag pub deb cur new prev_image ts debfile pkg try got=0 days blocked upgraded_today
+  local info tag pub deb cur new prev_image ts debfile pkg try got=0 days upgraded_today
   info="$(latest_release)" || { log "ERROR: 取不到 GitHub release（api.github.com 不可达），放弃"; return 1; }
   tag="$(printf '%s' "$info" | cut -f1)"
   pub="$(printf '%s' "$info" | cut -f2)"
@@ -231,7 +249,6 @@ do_upgrade() {
   fi
 
   days=$(( ( $(date +%s) - pub ) / 86400 ))
-  blocked="$(cat "$STATE_DIR/upgrade_blocked" 2>/dev/null || true)"
   upgraded_today=false
   if [ "$(cat "$STATE_DIR/last_upgrade" 2>/dev/null || true)" = "$(date +%F)" ]; then
     upgraded_today=true
@@ -251,7 +268,7 @@ do_upgrade() {
     else
       say "[dry-run] 今日已升级过: 否"
     fi
-    if [ "$blocked" = "$tag" ]; then
+    if is_blocked_version "$tag"; then
       say "[dry-run] 该版本已被标记为坏版本（自动升级会跳过；--force 可覆盖）"
     fi
     if health_ok; then
@@ -278,11 +295,10 @@ do_upgrade() {
   fi
 
   if [ "$force" = 1 ]; then
-    rm -f "$STATE_DIR/upgrade_blocked"
-    log "INFO: --force：跳过版本新旧/每日一次/坏版本/健康 四项门限"
+    log "INFO: --force：跳过版本新旧/每日一次/坏版本/健康 四项门限（不清空 upgrade_blocked，成功后请自行移除对应行）"
   else
     if ! ver_newer_than "$tag" "$cur"; then log "INFO: 当前 $cur 已是最新，无需升级"; return 0; fi
-    if [ "$blocked" = "$tag" ]; then log "INFO: v$tag 已被标记为坏版本，跳过（人工 --upgrade --force 可覆盖）"; return 0; fi
+    if is_blocked_version "$tag"; then log "INFO: v$tag 已被标记为坏版本，跳过（人工 --upgrade --force 可覆盖）"; return 0; fi
     if [ "$upgraded_today" = true ]; then log "INFO: 今天已升级过一次，跳过"; return 0; fi
     if ! health_ok; then
       log "ERROR: 当前代理不健康，拒绝升级（先让 --check 自愈，或 --force）"
@@ -428,7 +444,7 @@ do_check_update() {
     note_update "版本已最新（v$cur）"
     return 0
   fi
-  if [ "$(cat "$STATE_DIR/upgrade_blocked" 2>/dev/null || true)" = "$tag" ]; then
+  if is_blocked_version "$tag"; then
     note_update "v$tag 已被标记为坏版本，暂停自动升级（人工确认后用 --upgrade --force）"
     return 0
   fi
@@ -464,7 +480,7 @@ do_status() {
 }
 
 do_version_status() {
-  local info tag pub deb cur days blocked_tag
+  local info tag pub deb cur days
   cur="$(installed_version)"
   say "当前版本: ${cur:-未知}"
   if ! info="$(latest_release)"; then
@@ -482,8 +498,7 @@ do_version_status() {
     else
       say "自动升级: 关"
     fi
-    blocked_tag="$(cat "$STATE_DIR/upgrade_blocked" 2>/dev/null || true)"
-    if [ "$blocked_tag" = "$tag" ]; then
+    if is_blocked_version "$tag"; then
       say "  注意: 该版本已被标记为坏版本，不会自动升级"
       say "下一步: 该版本已拉黑，跳过；等更高的版本（或人工 --upgrade --force 重试）"
     elif [ "$days" -lt "$UPGRADE_WAIT_DAYS" ]; then
@@ -518,7 +533,7 @@ do_status_json() {
     if [ "$state" != "disabled" ]; then
       if ! ver_newer_than "$tag" "$cur"; then
         state="latest"
-      elif [ "$(cat "$STATE_DIR/upgrade_blocked" 2>/dev/null || true)" = "$tag" ]; then
+      elif is_blocked_version "$tag"; then
         state="blocked"
       elif [ "$days" -lt "$UPGRADE_WAIT_DAYS" ]; then
         state="waiting"

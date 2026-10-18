@@ -70,6 +70,7 @@ cron 23 * ──► --check-update
 - **改写不到任何分组 = 失败**：保留旧 profile、不重启、写日志。逃生口是 `--apply-raw`。
 - **失败只推进时间戳、不推进哈希**：下个 6 小时周期重试，不会每 5 分钟把机场打一遍。
 - **升级门槛四项独立**：版本更高、当日未升级、非坏版本、当前健康；`--force` 才跳过这四项，但**不跳过**备份、deb 完整性校验与失败回滚。
+- **坏版本可以整段拉黑**：`state/upgrade_blocked` 每行是一条 glob（如 `0.9.*`），命中即跳过；失败时自动追加精确版本。整段拉黑是为了避免同一系列的后续版本每晚 03:00 再白试一次（失败会回滚，但仍有一次短暂中断）。`--force` 只绕过门限，**不会**清空该文件。
 - **版本固化**：升级成功后 `docker commit`，日后容器被删重建也不会回退。
 - **回滚连数据库一起还原**：新版可能把 `database.sqlite` 迁移成新 schema（实测 FlClash 0.9.0 就会），旧版镜像读到新库会直接起不来。所以失败回滚会先还原升级前的 `database.sqlite` / `shared_preferences.json`，再换回旧镜像——否则"镜像回滚"只是假的回滚。
 
@@ -133,7 +134,7 @@ cron 23 * ──► --check-update
 | deb 反复下载失败 | 多数网络下 `github.com` 直连不通。本工具会直连快速失败后自动走 `PROXY` |
 | 容器重建后版本回退 | 说明 `docker commit` 那一轮失败了，日志里有明确的 `docker commit <容器> flclash:<版本>` 补救命令 |
 | 升级后不健康 | 工具会自动回滚（含还原升级前的 `database.sqlite`）；若回滚也失败，用 `--rollback` 或 `docker logs <容器>` 人工定位 |
-| 升级后 7890 不监听、无核心进程 | 已知：FlClash **0.9.0** 在 headless Docker 镜像里不会拉起 `FlClashCore`，见 [docs/notes/2026-10-17-flclash-0.9.0-docker-incompatible.md](docs/notes/2026-10-17-flclash-0.9.0-docker-incompatible.md)（上游 issue [#2728](https://github.com/chen08209/FlClash/issues/2728)）。工具会把它拉黑并留在旧版 |
+| 升级后 7890 不监听、无核心进程 | 已知：FlClash **0.9.x**（0.9.0、0.9.1 均实测，以 root 运行也一样）在 headless Docker 镜像里不会正常拉起 `FlClashCore`，见 [docs/notes/2026-10-17-flclash-0.9.0-docker-incompatible.md](docs/notes/2026-10-17-flclash-0.9.0-docker-incompatible.md)（上游 issue [#2728](https://github.com/chen08209/FlClash/issues/2728)）。工具会把整个 `0.9.*` 拉黑并留在旧版 |
 
 调试三件事：`--explain` 看判定理由、`--status` 看整体状态、`state/watchdog.log` 看历史。
 

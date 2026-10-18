@@ -75,6 +75,34 @@ ver_newer_than "0.8.98" "0.8.98" && bad "同版本不应判为新" || ok "同版
 ver_newer_than "0.8.98" "0.9.0" && bad "旧版本不应判为新" || ok "旧版本不判新"
 ver_newer_than "" "0.8.98" && bad "空版本不应判为新" || ok "空版本不判新"
 
+# ---------------------------------------------------------------- 坏版本拉黑
+
+section "坏版本拉黑（支持整段 glob）"
+rm -f "$STATE_DIR/upgrade_blocked"
+is_blocked_version "0.9.1" && bad "无拉黑文件时不应命中" || ok "无拉黑文件不命中"
+: > "$STATE_DIR/upgrade_blocked"
+is_blocked_version "0.9.1" && bad "空文件不应命中" || ok "空文件不命中"
+
+printf '0.9.0\n' > "$STATE_DIR/upgrade_blocked"
+is_blocked_version "0.9.0" && ok "精确版本命中" || bad "精确版本应命中"
+is_blocked_version "0.9.1" && bad "未列出的版本不应命中" || ok "未列出的版本不命中"
+
+printf '# 整段拉黑（0.9.x 无头环境起不来）\n\n0.9.*\n' > "$STATE_DIR/upgrade_blocked"
+is_blocked_version "0.9.1" && ok "glob 命中 0.9.1" || bad "glob 0.9.* 应命中 0.9.1"
+is_blocked_version "0.9.12" && ok "glob 命中 0.9.12" || bad "glob 0.9.* 应命中 0.9.12"
+is_blocked_version "0.10.0" && bad "glob 不应命中 0.10.0" || ok "glob 不命中 0.10.0"
+is_blocked_version "0.8.98" && bad "glob 不应命中 0.8.98" || ok "glob 不命中 0.8.98"
+is_blocked_version "" && bad "空版本不应命中" || ok "空版本不命中"
+
+rm -f "$STATE_DIR/upgrade_blocked"
+mark_bad "0.9.1"
+mark_bad "0.9.1"
+mark_bad "0.9.2"
+assert_eq "$(cat "$STATE_DIR/upgrade_blocked")" "0.9.1
+0.9.2" "mark_bad 追加且去重"
+( log() { :; }; mark_bad "" )
+assert_eq "$(wc -l < "$STATE_DIR/upgrade_blocked" | tr -d ' ')" "2" "mark_bad 空参数不写入"
+
 # ---------------------------------------------------------------- 维护窗口
 
 section "维护窗口"
