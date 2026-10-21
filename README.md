@@ -65,7 +65,7 @@ cron 23 * ──► --check-update
 
 关键设计：
 
-- **不写死节点名**：`url-test` 按延迟自动挑，节点改名增删都不影响；改写时按 `REGION_FILTER` 把分组成员过滤到目标区域（mihomo 的 `filter` 只对 provider / include-all 生效，对显式 `proxies` 无效，所以必须过滤列表本身）。
+- **不写死节点名**：`url-test` 按延迟自动挑，节点改名增删都不影响；改写时按 `REGION_FILTER` 把分组成员过滤到目标区域（mihomo 的 `filter` 只对 provider / include-all 生效，对显式 `proxies` 无效，所以必须过滤列表本身）。设 `REGION_FILTER=.*` 可放开全部区域；FlClash 的节点卡片仍可手动固定任意节点。
 - **改写用 PyYAML 解析**，不靠正则：block / flow 两种 YAML 写法都支持；节点列表以外的内容保持语义不变。
 - **改写不到任何分组 = 失败**：保留旧 profile、不重启、写日志。逃生口是 `--apply-raw`。
 - **失败只推进时间戳、不推进哈希**：下个 6 小时周期重试，不会每 5 分钟把机场打一遍。
@@ -109,7 +109,7 @@ cron 23 * ──► --check-update
 | `PROFILE_ID` | 空=自动 | 留空时先读 `shared_preferences.json`，再退回"唯一 profile" |
 | `PROXY` | `http://127.0.0.1:7890` | 健康检查与 deb 下载用的代理 |
 | `HEALTH_URL` | Google `generate_204` | 改成你确认可达的 204 地址 |
-| `REGION_FILTER` | 新/港/日/台 | 改写 `url-test` 时只保留名称匹配的节点 |
+| `REGION_FILTER` | 新/港/日/台 | 改写 `url-test` 时只保留名称匹配的节点；设为 `.*` 放开全部区域 |
 | `SUB_REFRESH_INTERVAL` | `21600` | 订阅检查间隔（秒） |
 | `UPGRADE_WAIT_DAYS` | `7` | 新版观察期 |
 | `UPGRADE_WINDOW` | `03:00-05:00` | 维护窗口，支持跨零点 |

@@ -74,7 +74,7 @@ ROOT_DIR="$(cd "$BIN_DIR/.." && pwd -P)"
 | `HEALTH_URL` | `https://www.google.com/generate_204` | 健康检查（经代理请求） |
 | `HEALTH_FAIL_THRESHOLD` | `2` | 连续失败多少次才重启 |
 | `SUB_REFRESH_INTERVAL` | `21600` | 订阅刷新间隔（秒） |
-| `REGION_FILTER` | `新加坡\|香港\|日本\|台湾\|Singapore\|Hong Kong\|Japan\|Taiwan\|SG\|HK\|JP\|TW` | 改写时过滤分组成员的正则 |
+| `REGION_FILTER` | `新加坡\|香港\|日本\|台湾\|Singapore\|Hong Kong\|Japan\|Taiwan\|SG\|HK\|JP\|TW` | 改写时过滤分组成员的正则；`.*` = 不过滤（全部节点） |
 | `TEST_URL` | `http://www.gstatic.com/generate_204` | url-test 测速地址 |
 | `URLTEST_INTERVAL` | `300` | 测速间隔（秒） |
 | `URLTEST_TOLERANCE` | `50` | 切换迟滞（毫秒） |

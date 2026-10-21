@@ -33,6 +33,7 @@
 # ---- 自动择优 ----
 # 只在这几个区域里挑节点（改写时按此正则过滤分组成员；mihomo 的 filter 对显式 proxies 无效）
 # REGION_FILTER=新加坡|香港|日本|台湾|Singapore|Hong Kong|Japan|Taiwan|SG|HK|JP|TW
+# 想放开全部区域（自动择优所有节点；FlClash 里手动固定节点仍可用）：REGION_FILTER=.*
 # TEST_URL=http://www.gstatic.com/generate_204
 # URLTEST_INTERVAL=300
 # URLTEST_TOLERANCE=50
