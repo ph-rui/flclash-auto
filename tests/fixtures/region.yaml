@@ -1,0 +1,29 @@
+proxies:
+  - {name: '🇭🇰 香港 | 11', type: ss, server: r.example.com, port: 1101, cipher: aes-128-gcm, password: p}
+  - {name: '🇸🇬 新加坡 | 11', type: ss, server: r.example.com, port: 1102, cipher: aes-128-gcm, password: p}
+  - {name: '🇯🇵 日本 | 11', type: ss, server: r.example.com, port: 1103, cipher: aes-128-gcm, password: p}
+  - {name: '🇹🇼 台湾 | 11', type: ss, server: r.example.com, port: 1104, cipher: aes-128-gcm, password: p}
+  - {name: '🇺🇸 美国 | 11', type: ss, server: r.example.com, port: 1105, cipher: aes-128-gcm, password: p}
+  - {name: '🇰🇷 韩国', type: ss, server: r.example.com, port: 1106, cipher: aes-128-gcm, password: p}
+proxy-groups:
+  - name: 'Flybit'
+    type: select
+    proxies:
+      - '🇭🇰 香港 | 11'
+      - '🇸🇬 新加坡 | 11'
+      - '🇯🇵 日本 | 11'
+      - '🇹🇼 台湾 | 11'
+      - '🇺🇸 美国 | 11'
+      - '🇰🇷 韩国'
+  # 全部是区域外节点：不能改写成跨区域的 url-test
+  - name: '海外节点'
+    type: select
+    proxies:
+      - '🇺🇸 美国 | 11'
+      - '🇰🇷 韩国'
+  # include-all 需要物化成显式列表，否则 filter 之外的节点仍会进组
+  - name: '全部节点'
+    type: select
+    include-all: true
+rules:
+  - MATCH,Flybit

@@ -61,6 +61,22 @@ for g in data.get("proxy-groups") or []:
 PY
 }
 
+glist() { # file group key -> comma separated
+  python3 - "$1" "$2" "$3" <<'PY'
+import sys
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as f:
+    data = yaml.safe_load(f)
+name, key = sys.argv[2], sys.argv[3]
+for g in data.get("proxy-groups") or []:
+    if isinstance(g, dict) and g.get("name") == name:
+        v = g.get(key) or []
+        print(",".join(str(item) for item in v))
+        break
+PY
+}
+
 transform_copy() { # fixture -> prints transformed names
   cp "$ROOT/tests/fixtures/$1" "$TMP/$1"
   transform_profile "$TMP/$1"
@@ -230,6 +246,26 @@ assert_eq "$(gval "$TMP/junk.yaml" "官网/公告" type)" "select" "junk: 公告
 out="$(transform_copy junkonly.yaml)"
 assert_eq "$out" "" "无可改分组时输出为空"
 assert_eq "$(gval "$TMP/junkonly.yaml" "公告" type)" "select" "无可改分组时保持原样"
+
+out="$(transform_copy region.yaml)"
+assert_eq "$out" "Flybit,全部节点" "region: 只改写有足够区域节点的分组"
+assert_eq "$(glist "$TMP/region.yaml" "Flybit" proxies)" \
+  "🇭🇰 香港 | 11,🇸🇬 新加坡 | 11,🇯🇵 日本 | 11,🇹🇼 台湾 | 11" \
+  "region: 显式 proxies 只保留目标区域"
+assert_eq "$(gval "$TMP/region.yaml" "海外节点" type)" "select" "region: 区域外节点不足时保持 select"
+assert_eq "$(glist "$TMP/region.yaml" "全部节点" proxies)" \
+  "🇭🇰 香港 | 11,🇸🇬 新加坡 | 11,🇯🇵 日本 | 11,🇹🇼 台湾 | 11" \
+  "region: include-all 物化为目标区域节点"
+assert_eq "$(gval "$TMP/region.yaml" "全部节点" include-all)" "" "region: include-all 已移除"
+
+old_region="$REGION_FILTER"
+REGION_FILTER='['
+if transform_copy region.yaml >/dev/null 2>&1; then
+  bad "非法 REGION_FILTER 应返回错误"
+else
+  ok "非法 REGION_FILTER 返回错误"
+fi
+REGION_FILTER="$old_region"
 
 printf 'proxies: [\n' > "$TMP/bad.yaml"
 if transform_profile "$TMP/bad.yaml" >/dev/null 2>&1; then

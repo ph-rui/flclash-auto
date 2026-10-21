@@ -43,6 +43,7 @@ transform_profile() {
   python3 - "$file" "$REGION_FILTER" "$URLTEST_INTERVAL" "$URLTEST_TOLERANCE" \
     "$TEST_URL" "$SKIP_GROUP_KEYWORDS" <<'PY'
 import os
+import re
 import sys
 import tempfile
 
@@ -64,6 +65,12 @@ except ValueError:
 skip_kw = [k for k in skip.split("|") if k]
 
 try:
+    region_re = re.compile(region)
+except re.error as exc:
+    sys.stderr.write("REGION_FILTER 不是合法正则: %s\n" % exc)
+    sys.exit(1)
+
+try:
     with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 except Exception as exc:
@@ -80,8 +87,11 @@ if not isinstance(proxies, list):
     sys.exit(1)
 
 nodes = set()
+node_order = []
 for item in proxies:
     if isinstance(item, dict) and isinstance(item.get("name"), str):
+        if item["name"] not in nodes:
+            node_order.append(item["name"])
         nodes.add(item["name"])
 if not nodes:
     sys.stderr.write("proxies 为空，无法判断分组成员（拒绝改写）\n")
@@ -106,12 +116,21 @@ for group in groups:
         continue
     members = group.get("proxies")
     if group.get("include-all") is True:
-        members = list(nodes)
+        members = list(node_order)
     if not isinstance(members, list) or len(members) < 2:
         continue
     # 只要有一个成员不是本 profile 的节点（即引用了别的分组），就不改这条
     if any(m not in nodes for m in members):
         continue
+
+    # mihomo 的 filter 只对 proxy-provider / include-all-proxies 生效，
+    # 对显式 proxies 列表无效。这里直接把成员过滤到目标区域，
+    # 保证 url-test 不会因为区域外节点延迟更低而选到它。
+    regional = [m for m in members if region_re.search(m)]
+    if len(regional) < 2:
+        continue
+    group["proxies"] = regional
+    group.pop("include-all", None)
 
     group["type"] = "url-test"
     group["url"] = testurl

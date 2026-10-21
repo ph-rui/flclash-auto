@@ -74,7 +74,7 @@ ROOT_DIR="$(cd "$BIN_DIR/.." && pwd -P)"
 | `HEALTH_URL` | `https://www.google.com/generate_204` | 健康检查（经代理请求） |
 | `HEALTH_FAIL_THRESHOLD` | `2` | 连续失败多少次才重启 |
 | `SUB_REFRESH_INTERVAL` | `21600` | 订阅刷新间隔（秒） |
-| `REGION_FILTER` | `新加坡\|香港\|日本\|台湾\|Singapore\|Hong Kong\|Japan\|Taiwan\|SG\|HK\|JP\|TW` | mihomo 分组 filter 正则 |
+| `REGION_FILTER` | `新加坡\|香港\|日本\|台湾\|Singapore\|Hong Kong\|Japan\|Taiwan\|SG\|HK\|JP\|TW` | 改写时过滤分组成员的正则 |
 | `TEST_URL` | `http://www.gstatic.com/generate_204` | url-test 测速地址 |
 | `URLTEST_INTERVAL` | `300` | 测速间隔（秒） |
 | `URLTEST_TOLERANCE` | `50` | 切换迟滞（毫秒） |
@@ -123,10 +123,12 @@ ROOT_DIR="$(cd "$BIN_DIR/.." && pwd -P)"
    - `type != select` → 跳过
    - 存在 `use`（代理提供者）→ 跳过
    - 名称命中 `SKIP_GROUP_KEYWORDS` → 跳过
-   - 成员 = `proxies` 列表（若 `include-all: true` 则成员 = `NODES`）
+   - 成员 = `proxies` 列表（若 `include-all: true` 则成员 = 全部节点，按 profile 顺序）
    - **任一成员不在 `NODES` 中**（说明该组引用的是别的分组）→ 跳过并 WARN
    - 成员数 < 2 → 跳过
-   - 满足全部条件 → 设 `type=url-test`、`url=TEST_URL`、`interval=URLTEST_INTERVAL`、`tolerance=URLTEST_TOLERANCE`、`lazy=false`、`filter=REGION_FILTER`；保留 `name` 与 `proxies`
+   - 按 `REGION_FILTER` 过滤成员；过滤后 < 2 个 → 跳过（不改写成跨区域的 url-test）
+   - 满足全部条件 → 设 `type=url-test`、`url=TEST_URL`、`interval=URLTEST_INTERVAL`、`tolerance=URLTEST_TOLERANCE`、`lazy=false`、`filter=REGION_FILTER`；`proxies` 替换为过滤后的区域节点，移除 `include-all`
+   - 说明：mihomo 的 `filter` 只对 proxy-provider / include-all-proxies 生效，对显式 `proxies` 无效，因此必须改写列表本身
 4. 用 `yaml.safe_dump(allow_unicode=True, sort_keys=False)` 序列化，**原子写入**（临时文件 + `os.replace`）。
 5. **一个组都没改写 → 视为失败**：保留旧 profile、不重启容器、记 ERROR 并给出原因。人工可 `--apply-raw` 原样应用（用于机场格式突变时先保连通）。
 

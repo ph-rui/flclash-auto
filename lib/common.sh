@@ -6,7 +6,7 @@
 # 配置项在这里定义、在其它 lib 里使用，属于跨文件共享变量
 # shellcheck disable=SC2034
 
-FLCLASH_AUTO_VERSION="1.0.0"
+FLCLASH_AUTO_VERSION="1.0.1"
 
 # ---------------------------------------------------------------- 配置
 
